@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Request Tracker - Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background-color: #f8f9fa; }
+        .dashboard-header { background-color: #0066cc; color: white; padding: 20px 30px; }
+        .stat-card { background: white; border-radius: 10px; padding: 20px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .stat-number { font-size: 36px; font-weight: bold; color: #0066cc; }
+        .urgency-high { background-color: #ffcccc; color: #cc0000; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
+        .urgency-medium { background-color: #fff3cd; color: #856404; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
+        .urgency-low { background-color: #d1e7dd; color: #0a5c36; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
+        .table-hover tbody tr:hover { cursor: pointer; background-color: #e8f0fe; }
+        .chart-container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+    <div class="dashboard-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2>AI Request Tracker Dashboard</h2>
+            <a href="/" class="btn btn-light">Submit New Request</a>
+        </div>
+    </div>
+
+    <div class="container-fluid p-4">
+        <!-- Stats Row -->
+        <div class="row mb-4" id="statsRow">
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalCount">0</div>
+                    <div>Total Requests</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="stat-number text-warning" id="pendingCount">0</div>
+                    <div>Pending</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="stat-number text-success" id="approvedCount">0</div>
+                    <div>Approved</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <h5>Requests by Status</h5>
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <h5>Requests by Department</h5>
+                    <canvas id="deptChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <select class="form-select" id="filterDept">
+                            <option value="">All Departments</option>
+                            <option value="Tech">Tech</option>
+                            <option value="Marketing">Marketing</option>
+                            <option value="Sales">Sales</option>
+                            <option value="Customer Success">Customer Success</option>
+                            <option value="Finance">Finance</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <select class="form-select" id="filterStatus">
+                            <option value="">All Statuses</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Reviewing">Reviewing</option>
+                            <option value="Approved">Approved</option>
+                            <option value="Rejected">Rejected</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-secondary w-100" onclick="resetFilters()">Reset Filters</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Requests Table -->
+        <div class="card">
+            <div class="card-body">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Department</th>
+                            <th>Project Title</th>
+                            <th>Urgency</th>
+                            <th>Status</th>
+                            <th>Submitted</th>
+                            <th>Update Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="requestsTable"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div class="modal fade" id="detailModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header" style="background-color: #0066cc; color: white;">
+                    <h5 class="modal-title">Request Details</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="modalBody"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let statusChart, deptChart;
+
+        async function loadStats() {
+            const response = await fetch('/api/stats');
+            const stats = await response.json();
+
+            document.getElementById('totalCount').textContent = stats.total;
+            document.getElementById('pendingCount').textContent = stats.by_status['Pending'] || 0;
+            document.getElementById('approvedCount').textContent = stats.by_status['Approved'] || 0;
+
+            // Status Chart
+            if (statusChart) statusChart.destroy();
+            statusChart = new Chart(document.getElementById('statusChart'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(stats.by_status),
+                    datasets: [{
+                        label: 'Requests',
+                        data: Object.values(stats.by_status),
+                        backgroundColor: ['#ffc107', '#17a2b8', '#28a745', '#dc3545']
+                    }]
+                },
+                options: { responsive: true, plugins: { legend: { display: false } } }
+            });
+
+            // Department Chart
+            if (deptChart) deptChart.destroy();
+            deptChart = new Chart(document.getElementById('deptChart'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(stats.by_department),
+                    datasets: [{
+                        label: 'Requests',
+                        data: Object.values(stats.by_department),
+                        backgroundColor: '#0066cc'
+                    }]
+                },
+                options: { responsive: true, plugins: { legend: { display: false } } }
+            });
+        }
+
+        async function loadRequests() {
+            const dept = document.getElementById('filterDept').value;
+            const status = document.getElementById('filterStatus').value;
+
+            let url = '/api/requests?';
+            if (dept) url += `department=${dept}&`;
+            if (status) url += `status=${status}`;
+
+            const response = await fetch(url);
+            const requests = await response.json();
+
+            const tbody = document.getElementById('requestsTable');
+            tbody.innerHTML = '';
+
+            requests.forEach(req => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${req.id}</td>
+                    <td>${req.name}</td>
+                    <td>${req.department}</td>
+                    <td>${req.project_title}</td>
+                    <td><span class="urgency-${req.urgency.toLowerCase()}">${req.urgency}</span></td>
+                    <td>${req.status}</td>
+                    <td>${req.created_at}</td>
+                    <td>
+                        <select class="form-select form-select-sm" onchange="updateStatus('${req.id}', this.value)">
+                            <option value="Pending" ${req.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                            <option value="Reviewing" ${req.status === 'Reviewing' ? 'selected' : ''}>Reviewing</option>
+                            <option value="Approved" ${req.status === 'Approved' ? 'selected' : ''}>Approved</option>
+                            <option value="Rejected" ${req.status === 'Rejected' ? 'selected' : ''}>Rejected</option>
+                        </select>
+                    </td>
+                `;
+                row.addEventListener('click', function(e) {
+                    if (e.target.tagName !== 'SELECT' && e.target.tagName !== 'OPTION') {
+                        showDetail(req.id);
+                    }
+                });
+                tbody.appendChild(row);
+            });
+        }
+
+        async function updateStatus(id, newStatus) {
+            await fetch(`/api/requests/${id}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            });
+            loadStats();
+        }
+
+        async function showDetail(id) {
+            const response = await fetch(`/api/requests/${id}`);
+            const req = await response.json();
+
+            document.getElementById('modalBody').innerHTML = `
+                <div class="row">
+                    <div class="col-md-6"><strong>Request ID:</strong> ${req.id}</div>
+                    <div class="col-md-6"><strong>Submitted:</strong> ${req.created_at}</div>
+                    <div class="col-md-6 mt-2"><strong>Name:</strong> ${req.name}</div>
+                    <div class="col-md-6 mt-2"><strong>Email:</strong> ${req.email}</div>
+                    <div class="col-md-6 mt-2"><strong>Department:</strong> ${req.department}</div>
+                    <div class="col-md-6 mt-2"><strong>Urgency:</strong> <span class="urgency-${req.urgency.toLowerCase()}">${req.urgency}</span></div>
+                    <div class="col-12 mt-2"><strong>Project Title:</strong> ${req.project_title}</div>
+                    <div class="col-12 mt-2"><strong>Problem Description:</strong><br>${req.problem_description}</div>
+                    <div class="col-12 mt-2"><strong>Status:</strong> ${req.status}</div>
+                </div>
+            `;
+
+            new bootstrap.Modal(document.getElementById('detailModal')).show();
+        }
+
+        function resetFilters() {
+            document.getElementById('filterDept').value = '';
+            document.getElementById('filterStatus').value = '';
+            loadRequests();
+        }
+
+        document.getElementById('filterDept').addEventListener('change', loadRequests);
+        document.getElementById('filterStatus').addEventListener('change', loadRequests);
+
+        loadStats();
+        loadRequests();
+    </script>
+</body>
+</html>

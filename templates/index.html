@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Request Tracker - Submit Request</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .form-container {
+            max-width: 700px;
+            margin: 40px auto;
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header { background-color: #0066cc; color: white; padding: 20px; border-radius: 10px 10px 0 0; margin: -40px -40px 30px -40px; }
+        .btn-submit { background-color: #0066cc; color: white; width: 100%; padding: 12px; font-size: 16px; }
+        .char-count { font-size: 12px; color: #666; text-align: right; }
+        #successAlert { display: none; }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <div class="header">
+            <h2>AI Project Request</h2>
+            <p class="mb-0">Submit a new AI project request for committee review</p>
+        </div>
+
+        <div id="successAlert" class="alert alert-success" role="alert">
+            <strong>Request submitted successfully!</strong> Your request ID is <span id="requestId"></span>
+        </div>
+
+        <form id="requestForm">
+            <div class="mb-3">
+                <label class="form-label">Your Name *</label>
+                <input type="text" class="form-control" id="name" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Email *</label>
+                <input type="email" class="form-control" id="email" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Department *</label>
+                <select class="form-select" id="department" required>
+                    <option value="">Select a department</option>
+                    <option value="Tech">Tech</option>
+                    <option value="Marketing">Marketing</option>
+                    <option value="Sales">Sales</option>
+                    <option value="Customer Success">Customer Success</option>
+                    <option value="Finance">Finance</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Project Title *</label>
+                <input type="text" class="form-control" id="project_title" maxlength="100" required>
+                <div class="char-count"><span id="titleCount">0</span>/100</div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Problem Description *</label>
+                <textarea class="form-control" id="problem_description" rows="4" maxlength="500" required></textarea>
+                <div class="char-count"><span id="descCount">0</span>/500</div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Urgency *</label>
+                <div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="urgency" id="high" value="High" required>
+                        <label class="form-check-label text-danger fw-bold" for="high">High</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="urgency" id="medium" value="Medium">
+                        <label class="form-check-label text-warning fw-bold" for="medium">Medium</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="urgency" id="low" value="Low">
+                        <label class="form-check-label text-success fw-bold" for="low">Low</label>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-submit">Submit Request</button>
+        </form>
+    </div>
+
+    <script>
+        // Character counters
+        document.getElementById('project_title').addEventListener('input', function() {
+            document.getElementById('titleCount').textContent = this.value.length;
+        });
+
+        document.getElementById('problem_description').addEventListener('input', function() {
+            document.getElementById('descCount').textContent = this.value.length;
+        });
+
+        // Form submission
+        document.getElementById('requestForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const data = {
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                department: document.getElementById('department').value,
+                project_title: document.getElementById('project_title').value,
+                problem_description: document.getElementById('problem_description').value,
+                urgency: document.querySelector('input[name="urgency"]:checked').value
+            };
+
+            const response = await fetch('/api/requests', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                document.getElementById('requestId').textContent = result.id;
+                document.getElementById('successAlert').style.display = 'block';
+                document.getElementById('requestForm').reset();
+                document.getElementById('titleCount').textContent = '0';
+                document.getElementById('descCount').textContent = '0';
+                window.scrollTo(0, 0);
+            }
+        });
+    </script>
+</body>
+</html>
