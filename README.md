@@ -25,4 +25,4 @@ A simple web application to track AI project requests from team members. Built w
 ## Known Limitations
 - No authentication — everyone has committee access
 - No pagination — works best for under 100 requests
-- Local deployment only unless hosted on a server
+- - Live deployment uses SQLite with ephemeral storage — data resets on server restart. For persistent production use, migrate to PostgreSQL
